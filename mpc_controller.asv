@@ -1,0 +1,34 @@
+% MPC Controller design with YALMIP
+
+% Brief: Implement a constrained MPC in YALMIP and evaluate it under varied design/constraint
+% scenarios (e.g., with/without terminal cost; input magnitude and input-rate limits).
+
+function y = mpc_controller(curr_x, curr_r, t, vm)
+% Inputs:
+%   curr_x  - current state [theta; alpha; theta_dot; alpha_dot]
+%   curr_r  - reference position (scalar)
+%   t       - time step (t == 0 initialises controller)
+%   vm      - control input: motor voltage
+% Output:
+%   y       - optimal control input [theta; alpha]
+
+persistent Controller  % preserves optimiser for reuse and improve execution speed
+
+if t==0     % initialise all the vars once
+    % simulink
+    ts = 0.002;         % sampling time (s)
+
+    % motor
+    Rm = 7.5;           % armature resistance (ohms)
+    kt = 0.042;         % torque constant (Nm/A)
+    km = 0.042;         % back-emf (Vs/rad)
+
+    % rotary arm
+    mr = 0.095;         % arm mass (kg)
+    r = 0.085;          % arm length - pivot to pendulum joint (m)
+    Jr = 2.41e-4;       % arm moment of inertia (kgm^2)
+    br = 
+
+end
+
+end
