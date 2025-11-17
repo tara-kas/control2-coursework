@@ -4,17 +4,17 @@
 % scenarios (e.g., with/without terminal cost; input magnitude and input-rate limits).
 
 function y = mpc_controller(curr_x, curr_r, t, vm)
-% Inputs:
+% INPUTS:
 %   curr_x  - current state [theta; alpha; theta_dot; alpha_dot]
 %   curr_r  - reference position (scalar)
 %   t       - time step (t == 0 initialises controller)
 %   vm      - control input: motor voltage
-% Output:
+% OUTPUT:
 %   y       - optimal control input [theta; alpha]
 
 persistent Controller  % preserves optimiser for reuse and improve execution speed
 
-if t==0     
+if t == 0     
     % initialise all the vars once
     % simulink
     ts = 0.002;         % sampling time (s)
@@ -54,6 +54,17 @@ if t==0
     a43 = ((mp * l * r) * ((kt * km) / Rm) + br) / det(M);
     a44 = ((Jr + mp * r^2) * bp) / det(M);
     b41 = (-(mp * l * r) * (kt / Rm)) / det(M);
+
+    % A, B, C, D matrices
+    A = [0,   0,   1,   0;
+         0,   0,   0,   1;
+         a31, a32, a33, a34;
+         a41, a42, a43, a44];
+
+    B = [0, 0, b3, b4]';
+
+    % CHECK THIS LOGIC v
+    C = eye(2);     % want both theta and alpha in output vector
 
 end
 
