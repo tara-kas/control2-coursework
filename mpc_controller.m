@@ -15,7 +15,7 @@ function y = mpc_controller(curr_x, curr_r, t, vm)
 persistent Controller  % preserves optimiser for reuse and improve execution speed
 
 if t == 0     
-    % initialise all the vars once
+    %% initialise all the vars once
     % simulink
     ts = 0.002;         % sampling time (s)
 
@@ -39,7 +39,7 @@ if t == 0
 
     g = 9.81;           % gravitational constant (m/s^2)
 
-    % state variables and sub-vars
+    %% state variables and sub-vars
     M = [ (Jr + mp * r^2),  (-mp * l * r);
           (mp * l * r),     (-Jp) ];
 
@@ -64,7 +64,57 @@ if t == 0
     B = [0, 0, b3, b4]';
 
     % CHECK THIS LOGIC v
-    C = eye(2);     % want both theta and alpha in output vector
+    C = [1, 0, 0, 0;      % since C in form [I 0],
+         0, 1, 0, 0];     % want both theta and alpha in output vector
+
+    D = 0;                % no direct feedthrough
+
+
+    %% steady state mapping SSM
+    % solves (A - I)*xss + B*uss = 0
+    % C*xss = ref
+    % => M*[xss; uss] = [0;0;0;0;r1;r2]
+
+    % Mss dimensions should be 6x5 (A is 4x4, C is 2x4 => 4+2 = 6)
+                                %  ([xss; uss] is 4x1+1x1 = 5)
+    Mss = [(A-eye(4)) B;
+           C          zeros(2,1)];
+
+
+    %% MPC costs weights and horizon
+    % Q weights the state tracking err (x - xss)
+    % since (x-xss) is 4x1, Q should be 4x4
+    Q = eye(4); %REPLACE W/ GAINS
+
+    % R weights the input tracking err (u - uss)
+    % since (u-uss) is 1x1, R should be scalar
+    R = 1;      %REPLACE W/ GAINS
+
+    % prediction horizon
+    N = 1;      %REPLACE W/ GAINS
+
+
+    % constraints (hard limits)
+    % input bounds/actuator saturation
+    u_min = -10;    %REPLACE
+    u_max = 10;     %REPLACE
+
+
+    % state bounds [theta; alpha; theta_dot; alpha_dot]
+    x_min = [-2*pi; -2*pi; -10; -10];   %REPLACE
+    x_max = [2*pi; 2*pi; 10; 10];       %REPLACE
+
+   
+    %% terminal cost from LQR
+    % P solves the discrete Riccati equation for (A,B,Q,R)
+    [~,P,~] = dlqr(A,B,Q,R,N);
+
+
+    %% YALMIP time
+    yalmip("clear");
+
+    % decision vars over the time horizon
+
 
 end
 
