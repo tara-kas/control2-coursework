@@ -114,8 +114,11 @@ if t == 0
     constraints = [];
     objective = 0;
 
-    % initial condition: x{1} is the current state
-    constraints = [constraints, x{1} == curr_x];
+    x_init = sdpvar(4,1); % current state (parameter)
+    r = sdpvar(1,1); % reference (parameter)
+
+    % initial condition: x{1} is the current state (parameter)
+    constraints = [constraints, x{1} == x_init];
 
     %% --- 7) Optional soft state constraints --------------------------
     % If hard state bounds make the QP infeasible, introduce slack e{k} >= 0
@@ -171,10 +174,10 @@ if t == 0
     ops = sdpsettings('solver','quadprog','verbose',2);
 
     % Create the parametric optimizer: inputs are initial state and reference
-    Controller = optimizer(constraints, objective, ops, r, u{1});
+    Controller = optimizer(constraints, objective, ops, {x_init, r}, u{1});
 
     % First solve
-    uout = Controller(curr_r);
+    uout = Controller(curr_x, curr_r);
     % if problem
     %     warning('MPC solver failed during initialization (code %d).', problem);
     %     uout = 0;
@@ -182,7 +185,7 @@ if t == 0
 
 else
     % Subsequent calls reuse the compiled optimizer for speed
-    uout = Controller(curr_r);
+    uout = Controller(curr_x, curr_r);
     % if problem
     %     warning('MPC solver failed at runtime (code %d).', problem);
     %     uout = 0;
