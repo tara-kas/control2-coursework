@@ -3,13 +3,17 @@
 % Brief: Implement a constrained MPC in YALMIP and evaluate it under varied design/constraint
 % scenarios (e.g., with/without terminal cost; input magnitude and input-rate limits).
 
-function y = mpc_controller(curr_x, curr_r, t)
+function y = mpc_controller(inputs)
 % INPUTS:
 %   curr_x  - current state [theta; alpha; theta_dot; alpha_dot]
 %   curr_r  - reference position (scalar)
 %   t       - time step (t == 0 initialises controller)
 % OUTPUT:
 %   y       - optimal control input
+
+curr_x = inputs(1:4);
+curr_r = inputs(5);
+t = inputs(6);
 
 persistent Controller  % preserves optimiser for reuse and improve execution speed
 
@@ -94,6 +98,7 @@ if t == 0
     % prediction horizon
     N = 10;      %REPLACE W/ GAINS
 
+    du_max = 5; % max change in input per sample (tune as needed)
 
     % constraints (hard limits)
     % input bounds/actuator saturation
@@ -135,6 +140,9 @@ if t == 0
     % objective and constraints
     objective = 0;
     constraints = [];
+
+    rho_soft = 1000;
+    use_soft_state = true;     % soft state on or off
 
     x_ref_vec = [0; ref; 0; 0];     % want alpha to be ref angle
 
@@ -190,11 +198,11 @@ if t == 0
 
     % make optimiser object
     ops = sdpsettings('solver', 'quadprog', 'verbose', 0); % Use 'quadprog' or 'osqp'
-    Controller = optimizer(constraints, objective, ops, {x_init, ref, u_prev}, u{1});     % output: first optimal input
+    Controller = optimizer(constraints, objective, ops, {x_init, ref}, u{1});     % output: first optimal input
     end
 
     % runtime execution & solve
-    [y, error_code] = Controller{curr_x, curr_r, vm};
+    [y, error_code] = Controller(curr_x, curr_r);
 
     % check for error
     if error_code ~= 0
