@@ -101,9 +101,9 @@ if t == 0
 
 
     % Steady-state target as affine function of r (use "\" not inv())
-    uxss = Mss \ [0; 0; 0; 0; r];
+    uxss = Mss \ [0; 0; 0; 0; 0; r];
     xss  = uxss(1:4);
-    uss  = 0;
+    uss  = uxss(5);
 
 
     % Build cost and constraints
