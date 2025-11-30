@@ -18,7 +18,8 @@ curr_x = inputs(1:4);
 curr_r = 0;
 t = inputs(5);
 
-persistent Controller  % Persistent optimizer object for re-use
+persistent Controller % Persistent optimizer object for re-use
+persistent last_u % last applied input for rate limiting
 
 if t == 0
     % --- System Initialization (executed only once) ---
@@ -73,6 +74,9 @@ if t == 0
 
     % prediction horizon
     N = 10;      %REPLACE W/ GAINS
+
+    % add rate limits
+    du_max = 5; % TUNE
     
     
     %% --- 4) Constraints (hard limits) --------------------------------
@@ -97,25 +101,22 @@ if t == 0
     %% --- 6) Build the YALMIP problem --------------------------------
     yalmip('clear')  % avoid variable accumulation across rebuilds
 
-    % Decision variables over the horizon
-    u = sdpvar(repmat(1,1,N),   repmat(1,1,N));    % u{1}..u{N}
-    x = sdpvar(repmat(4,1,N+1), repmat(1,1,N+1));  % x{1}..x{N+1}
-    sdpvar r                                        % reference (parameter)
-
-
-
-    % Steady-state target as affine function of r (use "\" not inv())
+    u = sdpvar(repmat(1,1,N), repmat(1,1,N)); % u{1}..u{N}
+    x = sdpvar(repmat(4,1,N+1), repmat(1,1,N+1)); % x{1}..x{N+1}
+    
+    % parameters
+    x_init = sdpvar(4,1); % current state
+    r = sdpvar(1,1); % reference
+    u_prev = sdpvar(1,1); % previous input (at time k=0)
+    
+    % Steady-state target as affine function of r (use "" not inv())
     uxss = Mss \ [0; 0; 0; 0; 0; r];
-    xss  = uxss(1:4);
-    uss  = uxss(5);
-
-
+    xss = uxss(1:4);
+    uss = uxss(5);
+    
     % Build cost and constraints
     constraints = [];
     objective = 0;
-
-    x_init = sdpvar(4,1); % current state (parameter)
-    r = sdpvar(1,1); % reference (parameter)
 
     % initial condition: x{1} is the current state (parameter)
     constraints = [constraints, x{1} == x_init];
@@ -139,11 +140,19 @@ if t == 0
         % System dynamics
        constraints = [constraints, x{k+1} == A*x{k} + B*u{k}];
 
-
-        % Input bounds (hard)
+       % Input bounds (hard)
        %  u_min <= u{k} <= u_max
        % TODO [Students]: Replace with u_min <= u{k} <= u_max.
         constraints = [constraints, u_min <= u{k} <= u_max]; 
+
+       % Input rate limits: |u(k) - u(k-1)| <= du_max
+        if k == 1
+            % First move: compare against incoming u_prev
+            constraints = [constraints, -du_max <= u{k} - u_prev <= du_max];
+        else
+            % Subsequent moves: compare against previous move in horizon
+            constraints = [constraints, -du_max <= u{k} - u{k-1} <= du_max];
+        end
 
        if ~use_soft_state
 
@@ -174,10 +183,15 @@ if t == 0
     ops = sdpsettings('solver','quadprog','verbose',2);
 
     % Create the parametric optimizer: inputs are initial state and reference
-    Controller = optimizer(constraints, objective, ops, {x_init, r}, u{1});
+    Controller = optimizer(constraints, objective, ops, {x_init, r, u_prev}, u{1});
+
+    if isempty(last_u)
+        last_u = 0; % start from 0 input
+    end
 
     % First solve
-    uout = Controller(curr_x, curr_r);
+    uout = Controller(curr_x, curr_r, last_u);
+    last_u = uout; % update stored previous input
     % if problem
     %     warning('MPC solver failed during initialization (code %d).', problem);
     %     uout = 0;
@@ -185,7 +199,8 @@ if t == 0
 
 else
     % Subsequent calls reuse the compiled optimizer for speed
-    uout = Controller(curr_x, curr_r);
+    uout = Controller(curr_x, curr_r, last_u);
+    last_u = uout;
     % if problem
     %     warning('MPC solver failed at runtime (code %d).', problem);
     %     uout = 0;

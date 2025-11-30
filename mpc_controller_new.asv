@@ -1,4 +1,4 @@
-function uout = MPC_Constraints(inputs)
+function uout = mpc_controller_new(inputs)
 % MPC with steady‑state target tracking, LQR terminal cost, and constraints.
 %
 % LEARNING GOALS (students):
@@ -15,7 +15,7 @@ function uout = MPC_Constraints(inputs)
 %   uout      - optimal control input
 
 curr_x = inputs(1:4);
-curr_r = [0;0;0;0];
+curr_r = 0;
 t = inputs(5);
 
 persistent Controller  % Persistent optimizer object for re-use
@@ -61,14 +61,21 @@ if t == 0
     % R weights the input tracking error (u - uss).
 
     % since (x-xss) is 4x1, Q should be 4x4
-    Q = eye(4); %REPLACE W/ GAINS
-
+    % Q = eye(4); %REPLACE W/ GAINS
+    Q = [4 0 0 0;
+         0 3 0 0;
+         0 0 1 0;
+         0 0 0 1];
+        
     % R weights the input tracking err (u - uss)
     % since (u-uss) is 1x1, R should be scalar
-    R = 1;      %REPLACE W/ GAINS
+    R = 5;      %REPLACE W/ GAINS
 
     % prediction horizon
     N = 10;      %REPLACE W/ GAINS
+
+    % add rate limits
+    du_max = 5; % TUNE
     
     
     %% --- 4) Constraints (hard limits) --------------------------------
@@ -93,34 +100,33 @@ if t == 0
     %% --- 6) Build the YALMIP problem --------------------------------
     yalmip('clear')  % avoid variable accumulation across rebuilds
 
-    % Decision variables over the horizon
-    u = sdpvar(repmat(1,1,N),   repmat(1,1,N));    % u{1}..u{N}
-    x = sdpvar(repmat(4,1,N+1), repmat(1,1,N+1));  % x{1}..x{N+1}
-    sdpvar r                                        % reference (parameter)
-
-
-
-    % Steady-state target as affine function of r (use "\" not inv())
-    uxss = Mss \ [0; 0; 0; 0; r];
-    xss  = uxss(1:4);
-    uss  = 0;
-
-
+    u = sdpvar(repmat(1,1,N), repmat(1,1,N)); % u{1}..u{N}
+    x = sdpvar(repmat(4,1,N+1), repmat(1,1,N+1)); % x{1}..x{N+1}
+    
+    % parameters
+    x_init = sdpvar(4,1); % current state
+    r = sdpvar(1,1); % reference
+    u_prev = sdpvar(1,1); % previous input (at time k=0)
+    
+    % Steady-state target as affine function of r (use "" not inv())
+    uxss = Mss \ [0; 0; 0; 0; 0; r];
+    xss = uxss(1:4);
+    uss = uxss(5);
+    
     % Build cost and constraints
     constraints = [];
     objective = 0;
+
+    x_init = sdpvar(4,1); % current state (parameter)
+    r = sdpvar(1,1); % reference (parameter)
+
+    % initial condition: x{1} is the current state (parameter)
+    constraints = [constraints, x{1} == x_init];
 
     %% --- 7) Optional soft state constraints --------------------------
     % If hard state bounds make the QP infeasible, introduce slack e{k} >= 0
     % to "soften" the box:  x_min - e{k} <= x{k} <= x_max + e{k}
     % and penalise ||e{k}||^2 with a large weight rho_soft.
-
-    use_soft_state = 1;    % set to 0 to enforce hard state bounds
-    rho_soft       = 1000;  % larger -> closer to hard bounds
-
-    if use_soft_state
-        e = sdpvar(repmat(2,1,N), repmat(1,1,N)); 
-    end
 
     use_soft_state = true; % set false to enforce hard state bounds
     rho_soft = 1000; % larger -> closer to hard bounds
@@ -136,11 +142,19 @@ if t == 0
         % System dynamics
        constraints = [constraints, x{k+1} == A*x{k} + B*u{k}];
 
-
-        % Input bounds (hard)
+       % Input bounds (hard)
        %  u_min <= u{k} <= u_max
        % TODO [Students]: Replace with u_min <= u{k} <= u_max.
         constraints = [constraints, u_min <= u{k} <= u_max]; 
+
+       % Input rate limits: |u(k) - u(k-1)| <= du_max
+if k == 1
+% First move: compare against incoming u_prev
+constraints = [constraints, -du_max <= u{k} - u_prev <= du_max];
+else
+% Subsequent moves: compare against previous move in horizon
+constraints = [constraints, -du_max <= u{k} - u{k-1} <= du_max];
+end
 
        if ~use_soft_state
 
@@ -165,26 +179,26 @@ if t == 0
    %% --- 9) Terminal cost on terminal state error --------------------
     % TODO [Students]: Add terminal cost term using P
     % This term should penalise (xss - x{N+1}) using P.
-    objective = objective + (xss - x{t+N})'*P*(xss - x{t+N});  % <-- Replace 0 with terminal cost term
+    objective = objective + (xss - x{N+1})'*P*(xss - x{N+1});  % <-- Replace 0 with terminal cost term
 
     % Solver settings
     ops = sdpsettings('solver','quadprog','verbose',2);
 
     % Create the parametric optimizer: inputs are initial state and reference
-    Controller = optimizer(constraints, objective, ops, {x{1}, r}, u{1});
+    Controller = optimizer(constraints, objective, ops, {x_init, r}, u{1});
 
     % First solve
-    [uout, problem] = Controller(curr_x, curr_r);
-    if problem
-        warning('MPC solver failed during initialization (code %d).', problem);
-        uout = 0;
-    end
+    uout = Controller(curr_x, curr_r);
+    % if problem
+    %     warning('MPC solver failed during initialization (code %d).', problem);
+    %     uout = 0;
+    % end
 
 else
     % Subsequent calls reuse the compiled optimizer for speed
-    [uout, problem] = Controller(curr_x, curr_r);
-    if problem
-        warning('MPC solver failed at runtime (code %d).', problem);
-        uout = 0;
-    end
+    uout = Controller(curr_x, curr_r);
+    % if problem
+    %     warning('MPC solver failed at runtime (code %d).', problem);
+    %     uout = 0;
+    % end
 end
