@@ -117,13 +117,16 @@ if t == 0
     % parameters
     u = sdpvar(repmat(nu,1,N), repmat(1,1,N), 'full'); % sequence of future inputs
     x = sdpvar(repmat(nx,1,N+1), repmat(1,1,N+1), 'full'); % sequence of future states
-
+    
+    % add for soft constraints
+    e = sdpvar(repmat(nx,1,N), repmat(1,1,N), 'full');
+    
     sdpvar r
     sdpvar u_prev
 
     xss = [curr_r; 0; 0; 0];
     uss = 0;
-
+    
     % placeholder to solve at every timestep
     x_init = sdpvar(nx, 1);   % current state of the pendulum
     ref = sdpvar(1, 1);       % The target angle
@@ -142,7 +145,7 @@ if t == 0
     % decision vars over the time horizon
     for k = 1:N
         % objective function (Cost)
-        objective = objective + (xss - x{k})' * Q * (xss - x{k}) + (uss - u{k})' * R * (uss - u{k});
+        % objective = objective + (xss - x{k})' * Q * (xss - x{k}) + (uss - u{k})' * R * (uss - u{k});
 
         % system dynamics constraint
         % x(k+1) = Ad * x(k) + Bd * u(k)
@@ -156,7 +159,26 @@ if t == 0
         constraints = [constraints, -du_max <= u{k} - current_u_prev <= du_max];
         
         % state constraints
-        constraints = [constraints, x_min <= x{k} <= x_max];
+        if ~use_soft_state
+            % Hard state box (Original logic)
+            constraints = [constraints, x_min <= x{k} <= x_max];
+            
+            % Standard Cost
+            objective = objective + (xss - x{k})' * Q * (xss - x{k}) ...
+                                  + (uss - u{k})' * R * (uss - u{k});
+        else
+            % Soft state box with slack (Requested logic)
+            % x_min - e{k} <= x{k} <= x_max + e{k}
+            constraints = [constraints, x_min - e{k} <= x{k} <= x_max + e{k}];
+            
+            % Slack must be positive (e{k} >= 0)
+            constraints = [constraints, e{k} >= 0];
+            
+            % Cost: Tracking Error + Control Effort + Slack Penalty
+            objective = objective + (xss - x{k})' * Q * (xss - x{k}) ...
+                                  + (uss - u{k})' * R * (uss - u{k}) ...
+                                  + rho_soft * (e{k}' * e{k});
+        end
         
         % update previous u for the next step in the loop
         current_u_prev = u{k};
