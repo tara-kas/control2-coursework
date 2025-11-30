@@ -1,4 +1,4 @@
-function uout = MPC_Constraints(inputs)
+function uout = mpc_controller_new(inputs)
 % MPC with steady‑state target tracking, LQR terminal cost, and constraints.
 %
 % LEARNING GOALS (students):
@@ -61,11 +61,15 @@ if t == 0
     % R weights the input tracking error (u - uss).
 
     % since (x-xss) is 4x1, Q should be 4x4
-    Q = eye(4); %REPLACE W/ GAINS
-
+    % Q = eye(4); %REPLACE W/ GAINS
+    Q = [4 0 0 0;
+         0 3 0 0;
+         0 0 1 0;
+         0 0 0 1];
+        
     % R weights the input tracking err (u - uss)
     % since (u-uss) is 1x1, R should be scalar
-    R = 1;      %REPLACE W/ GAINS
+    R = 5;      %REPLACE W/ GAINS
 
     % prediction horizon
     N = 10;      %REPLACE W/ GAINS
