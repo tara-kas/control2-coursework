@@ -199,10 +199,11 @@ if t == 0
     % make optimiser object
     ops = sdpsettings('solver', 'quadprog', 'verbose', 0); % Use 'quadprog' or 'osqp'
     Controller = optimizer(constraints, objective, ops, {x_init, ref}, u{1});     % output: first optimal input
-    end
+end
 
     % runtime execution & solve
-    [y, error_code] = Controller(curr_x, curr_r);
+    % Pass inputs as a cell array
+    [y, error_code] = Controller{{curr_x, curr_r}};
 
     % check for error
     if error_code ~= 0
