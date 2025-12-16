@@ -1,0 +1,11 @@
+figure(6)
+plot(tout, data_alpha)
+xlim([5 28])
+ylim([-1 1])
+
+yline(0.6,'r--','LineWidth',1.5)
+yline(-0.6,'r--','LineWidth',1.5)
+xlabel('time')
+ylabel('alpha')
+legend('alpha', 'Settling Band')
+title('PID response over 20 seconds (alpha)')
