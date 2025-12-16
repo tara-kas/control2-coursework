@@ -12,11 +12,10 @@ clear; clc; close all;
 
 %% User Configuration
 % Modify these parameters as needed
-csv_file = 'experiment_csv/input_mag_5.csv';           % Input CSV file name
+csv_file = 'experiment_csv/no_terminal_cost_n10.csv';           % Input CSV file name
 settling_threshold = 2.0;        % Settling band for alpha (±degrees from 0)
 saturation_limit = 10.0;         % Voltage saturation limit (V)
 theta_setpoint = 0;              % Arm angle setpoint (degrees)
-ts = 0.002;                      % Sampling time (s)
 
 %% Load Data
 fprintf('Loading data from: %s\n', csv_file);
@@ -26,9 +25,6 @@ time = data.Time;
 theta = data.Theta_2;            % Arm angle
 alpha = data.Alpha;              % Pendulum angle
 input_v = data.Input;            % Control voltage
-
-% Calculate input rate (delta u)
-delta_u = [0; diff(input_v)] / ts;  % V/s
 
 fprintf('Data loaded: %d samples, %.2f seconds duration\n', length(time), time(end));
 
@@ -68,9 +64,22 @@ saturated = abs(input_v) >= (saturation_limit - 0.01);  % Small tolerance
 saturation_pct = 100 * sum(saturated) / length(input_v);
 fprintf('Saturation (±%.0fV): %.1f %%\n', saturation_limit, saturation_pct);
 
-%% 4. Maximum Arm Angle
-max_theta = max(theta);
-fprintf('Max Arm Angle (θ): %.1f deg\n', max_theta);
+%% 4. Maximum Arm Angle (Overshoot Percentage)
+% Calculate overshoot relative to setpoint
+% Overshoot % = ((Max - Setpoint) / Setpoint) * 100
+% Since setpoint is 0, we report max angle and percentage of typical max swing
+
+max_theta = max(abs(theta));
+min_theta = min(theta);
+max_theta_positive = max(theta);
+
+% For overshoot percentage, we use the maximum arm angle achieved
+% Referenced against a nominal expected maximum (from baseline ~23.2 deg)
+nominal_max_theta = 23.2;  % Baseline reference (degrees)
+overshoot_pct = ((max_theta_positive - nominal_max_theta) / nominal_max_theta) * 100;
+
+fprintf('Max Arm Angle (θ): %.1f deg\n', max_theta_positive);
+fprintf('Arm Angle Overshoot: %.1f %% (relative to %.1f° baseline)\n', overshoot_pct, nominal_max_theta);
 
 %% 5. Steady State Error
 % Calculate steady state error for alpha (pendulum angle)
@@ -81,57 +90,35 @@ alpha_setpoint = 0;  % Target pendulum angle
 steady_state_error = abs(alpha_ss - alpha_setpoint);
 fprintf('Steady State Error (α): %.3f deg\n', steady_state_error);
 
-%% 6. Rise Time
-% Rise time: time to go from 10% to 90% of the total change
-% Alpha goes from -180 deg to 0 deg, so total change is 180 deg
-alpha_initial = -180;
-alpha_final = 0;
-alpha_10pct = alpha_initial + 0.1 * (alpha_final - alpha_initial);  % -162 deg
-alpha_90pct = alpha_initial + 0.9 * (alpha_final - alpha_initial);  % -18 deg
-
-% Find time when alpha first crosses 10% threshold
-idx_10 = find(alpha >= alpha_10pct, 1, 'first');
-% Find time when alpha first crosses 90% threshold
-idx_90 = find(alpha >= alpha_90pct, 1, 'first');
-
-if ~isempty(idx_10) && ~isempty(idx_90)
-    rise_time = time(idx_90) - time(idx_10);
-    fprintf('Rise Time (10%%-90%%): %.3f s\n', rise_time);
-else
-    rise_time = NaN;
-    fprintf('Rise Time: NOT ACHIEVED\n');
-end
-
 %% Summary Table
 fprintf('\n--- SUMMARY TABLE ---\n');
 fprintf('%-25s | %s\n', 'Metric', 'Value');
 fprintf('%s\n', repmat('-', 1, 45));
-fprintf('%-25s | %.3f s\n', 'Rise Time (10%-90%)', rise_time);
 fprintf('%-25s | %.2f s\n', 'Settling Time (α→0°)', settling_time);
-fprintf('%-25s | %.3f deg\n', 'Steady State Error', steady_state_error);
 fprintf('%-25s | %.2f V\n', 'RMS Input', rms_input);
 fprintf('%-25s | %.1f %%\n', 'Saturation (±10V)', saturation_pct);
-fprintf('%-25s | %.1f deg\n', 'Max Arm Angle (θ)', max_theta);
+fprintf('%-25s | %.1f deg\n', 'Max Arm Angle (θ)', max_theta_positive);
+fprintf('%-25s | %.1f %%\n', 'Overshoot', overshoot_pct);
+fprintf('%-25s | %.3f %%\n', 'Steady State Error', steady_state_error);
 
-%% Plotting - Clear and labelled time-domain plots
+%% Plotting
 figure('Position', [100, 100, 1200, 800]);
 
-% Common axis limits for consistent comparison
-time_limits = [0 time(end)];
-
-% Plot 1: Arm Angle θ(t)
+% Plot 1: Arm Angle
 subplot(2,2,1);
 plot(time, theta, 'b', 'LineWidth', 1.2);
 hold on;
 yline(0, 'k--', 'LineWidth', 1);
+if ~isnan(settling_idx)
+    xline(settling_time, 'r--', 'LineWidth', 1.5);
+end
 xlabel('Time (s)');
 ylabel('\theta (deg)');
-title('Arm Angle \theta(t)');
-xlim(time_limits);
+title('Arm Angle');
 grid on;
-legend('\theta', 'Setpoint', 'Location', 'best');
+legend('θ', 'Setpoint', 'Settling Time', 'Location', 'best');
 
-% Plot 2: Pendulum Angle α(t)
+% Plot 2: Pendulum Angle
 subplot(2,2,2);
 plot(time, alpha, 'b', 'LineWidth', 1.2);
 hold on;
@@ -143,34 +130,53 @@ if ~isnan(settling_idx)
 end
 xlabel('Time (s)');
 ylabel('\alpha (deg)');
-title('Pendulum Angle \alpha(t)');
-xlim(time_limits);
+title('Pendulum Angle');
 grid on;
-legend('\alpha', 'Setpoint', 'Settling Band', '', 'Settling Time', 'Location', 'best');
+legend('α', 'Setpoint', 'Settling Band', '', 'Settling Time', 'Location', 'best');
 
-% Plot 3: Control Voltage u(t)
+% Plot 3: Control Voltage
 subplot(2,2,3);
 plot(time, input_v, 'b', 'LineWidth', 1.2);
 hold on;
 yline(saturation_limit, 'r--', 'LineWidth', 1.5);
 yline(-saturation_limit, 'r--', 'LineWidth', 1.5);
 xlabel('Time (s)');
-ylabel('u (V)');
-title('Control Voltage u(t)');
-xlim(time_limits);
-ylim([-12 12]);
+ylabel('Input (V)');
+title(sprintf('Control Voltage (RMS: %.2f V, Sat: %.1f%%)', rms_input, saturation_pct));
 grid on;
-legend('u', 'Saturation Limits', '', 'Location', 'best');
+legend('Input', 'Saturation Limits', '', 'Location', 'best');
 
-% Plot 4: Input Rate Δu(t)
+% Plot 4: Zoomed Pendulum Angle (around settling)
 subplot(2,2,4);
-plot(time, delta_u, 'b', 'LineWidth', 1.2);
+if ~isnan(settling_time)
+    zoom_start = max(0, settling_time - 2);
+    zoom_end = min(time(end), settling_time + 4);
+else
+    zoom_start = 5;
+    zoom_end = 10;
+end
+zoom_mask = (time >= zoom_start) & (time <= zoom_end);
+plot(time(zoom_mask), alpha(zoom_mask), 'b', 'LineWidth', 1.2);
 hold on;
+yline(0, 'k--', 'LineWidth', 1);
+yline(settling_threshold, 'g--', 'LineWidth', 1);
+yline(-settling_threshold, 'g--', 'LineWidth', 1);
+if ~isnan(settling_idx)
+    xline(settling_time, 'r--', 'LineWidth', 1.5);
+end
 xlabel('Time (s)');
-ylabel('\Delta u (V/s)');
-title('Input Rate \Delta u(t)');
-xlim(time_limits);
+ylabel('\alpha (deg)');
+title('Pendulum Angle (Zoomed)');
 grid on;
-legend('\Delta u', 'Location', 'best');
 
 sgtitle(sprintf('MPC Analysis: %s', csv_file), 'FontSize', 14, 'FontWeight', 'bold');
+
+% %% Export Results to Struct
+% results.file = csv_file;
+% results.settling_time = settling_time;
+% results.rms_input = rms_input;
+% results.saturation_pct = saturation_pct;
+% results.max_theta = max_theta_positive;
+% results.overshoot_pct = overshoot_pct;
+% 
+% fprintf('\nResults stored in "results" struct.\n');

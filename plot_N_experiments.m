@@ -7,11 +7,8 @@ clear; clc; close all;
 % --- 1. Load Data ---
 % Define files and their display names/colors
 experiments = {
-    'experiment_csv/N5.csv',       'N=5 (Short)',      [0.85, 0.33, 0.1]; % Burnt Orange
-    'experiment_csv/Baseline.csv', 'N=10 (Baseline)',  'k';               % Black
-    'experiment_csv/N30.csv',      'N=30',             'b';               % Blue
-    'experiment_csv/N50.csv',      'N=50',             [0, 0.6, 0];       % Dark Green
-    'experiment_csv/N80.csv',      'N=80 (Long)',      'm'                % Magenta
+    'experiment_csv/Baseline.csv', 'Baseline',  'k';               % Black
+    'experiment_csv/no_terminal_cost_n10.csv',      'No Terminal Cost',             'b';               % Blue
 };
 
 data = containers.Map();
