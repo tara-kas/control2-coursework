@@ -7,11 +7,11 @@ clear; clc; close all;
 % --- 1. Load Data ---
 % Define files and their display names/colors
 experiments = {
-    'N5.csv',       'N=5 (Short)',      [0.85, 0.33, 0.1]; % Burnt Orange
-    'Baseline.csv', 'N=10 (Baseline)',  'k';               % Black
-    'N30.csv',      'N=30',             'b';               % Blue
-    'N50.csv',      'N=50',             [0, 0.6, 0];       % Dark Green
-    'N80.csv',      'N=80 (Long)',      'm'                % Magenta
+    'experiment_csv/N5.csv',       'N=5 (Short)',      [0.85, 0.33, 0.1]; % Burnt Orange
+    'experiment_csv/Baseline.csv', 'N=10 (Baseline)',  'k';               % Black
+    'experiment_csv/N30.csv',      'N=30',             'b';               % Blue
+    'experiment_csv/N50.csv',      'N=50',             [0, 0.6, 0];       % Dark Green
+    'experiment_csv/N80.csv',      'N=80 (Long)',      'm'                % Magenta
 };
 
 data = containers.Map();
@@ -69,7 +69,7 @@ function create_horizon_figure(dataMap, expList)
     
     % --- Shift Grids Down for Legend Space ---
     axes_list = [ax1, ax2, ax3, ax4];
-    shift_down = 0.08;
+    shift_down = 0.02;
     for ax = axes_list
         pos = get(ax, 'Position');
         set(ax, 'Position', [pos(1), pos(2) - shift_down, pos(3), pos(4)]);

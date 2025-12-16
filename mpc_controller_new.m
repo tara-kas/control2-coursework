@@ -64,9 +64,16 @@ if t == 0
     % since (x-xss) is 4x1, Q should be 4x4
     % Q = eye(4); %REPLACE W/ GAINS
     Q = [4 0 0 0;
-         0 3 0 0;
+         0 30 0 0;
          0 0 1 0;
          0 0 0 1];
+
+
+    % BASELINE VALUES
+    % Q = [4 0 0 0;
+    %      0 3 0 0;
+    %      0 0 1 0;
+    %      0 0 0 1];
         
     % R weights the input tracking err (u - uss)
     % since (u-uss) is 1x1, R should be scalar
