@@ -4,3 +4,4 @@
 *.rt-win64
 *.slxc
 *.slxp
+.DS_Store
