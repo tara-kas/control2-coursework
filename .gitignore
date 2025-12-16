@@ -1,1 +1,6 @@
-.DS_Store
+*.DS_Store
+*.asv
+*.r2024b
+*.rt-win64
+*.slxc
+*.slxp
