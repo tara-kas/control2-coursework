@@ -37,7 +37,7 @@ The coursework involves:
 The coursework uses the **QUBE-Servo 3 Rotary Pendulum** with the following key parameters:
 
 - Sampling time: 0.002 s
-- Control objective: Stabilize pendulum at upright position (α = 0)
+- Control objective: Stabilise pendulum at upright position (α = 0)
 - Steady-state error requirement: α ∈ [−0.6°, 0.6°]
 - Self-balance duration: ≥ 20 seconds
 
@@ -55,7 +55,7 @@ The coursework uses the **QUBE-Servo 3 Rotary Pendulum** with the following key 
 2. **Run PID Controller**: Open `PID_controller.slx` in Simulink and run
 3. **Run MPC Controller**: Open `MPC_simulink.slx` in Simulink and run
 4. **Run Experiments**: Execute `run_experiments.m` to generate experimental data
-5. **Analyze Results**: Use `plot_experiments.m` and `metric_analysis.m` to visualize results
+5. **Analyse Results**: Use `plot_experiments.m` and `metric_analysis.m` to visualize results
 
 ## Project Structure
 
