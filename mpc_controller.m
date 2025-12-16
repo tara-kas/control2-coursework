@@ -1,4 +1,4 @@
-function uout = mpc_controller_new(inputs)
+function uout = mpc_controller(inputs)
 
 curr_x = inputs(1:4);
 curr_r = 0;
@@ -12,7 +12,8 @@ if t == 0
     %% Plant model
     % Discrete time state space model with sampling time ts
     ts = 0.002;
-
+    
+    % A, B matrices found from state space calculations
     A = [1 0 0.0020 0;
          0 1 0 0.0020;
          0 0.1103 0.9909 -0.0004;
@@ -24,6 +25,7 @@ if t == 0
     C = [1 0 0 0;
          0 1 0 0];
 
+    % No direct feedthrough
     D = 0;
 
     %% Steady state mapping
@@ -33,19 +35,22 @@ if t == 0
 
     %% Cost weights and horizon
     % Q penalises state tracking error R penalises input deviation
+    % Baseline values:
     Q = [4 0 0 0;
-         0 30 0 0;
+         0 3 0 0;
          0 0 1 0;
-         0 0 0 1];
+         0 0 0 1];      % penalises state deviation or tracking error
 
-    R = 5;
-    N = 10;
+    R = 5;              % penalises control effort
 
+    N = 10;             % prediction horizon
+    
     % Input rate limit
     du_max = 5;
 
     %% Constraints
     % Hard bounds on input and state
+    % Input magnitude limits / saturation
     u_min = -10;
     u_max = 10;
 
